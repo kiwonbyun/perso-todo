@@ -6,7 +6,7 @@ const { createTray } = require('./tray')
 const { scheduleNotify } = require('./notify')
 
 const isDev = process.env.NODE_ENV === 'development'
-const DB_PATH = isDev ? ':memory:' : path.join(app.getPath('userData'), 'todos.db')
+const DB_PATH = path.join(isDev ? require('os').tmpdir() : app.getPath('userData'), 'perso-todo-dev.db')
 const API_PORT = 3001
 
 let win, tray, db, notifier
@@ -19,7 +19,8 @@ function createWindow() {
     minHeight: 500,
     webPreferences: {
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.js')
     },
     show: false
   })
@@ -42,9 +43,14 @@ function createWindow() {
 app.whenReady().then(() => {
   db = createDb(DB_PATH)
 
-  const server = createServer(db)
+  const server = createServer(db, { onNotifyChange: () => notifier && notifier.reload() })
   server.listen(API_PORT, '127.0.0.1', () => {
     console.log(`API server running on port ${API_PORT}`)
+  })
+
+  server.post('/api/notify/test', async (req, res) => {
+    await notifier.fireNow()
+    res.json({ ok: true })
   })
 
   createWindow()

@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
-import { TodoList } from './TodoList'
 import { TodoForm } from './TodoForm'
 
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 
 function getMonthCells(year, month) {
-  // Returns array of {date, otherMonth} for 6-week grid starting Monday
   const firstDay = new Date(year, month, 1)
   const startOffset = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1
   const cells = []
@@ -20,14 +18,14 @@ function getMonthCells(year, month) {
   return cells
 }
 
-export function MonthView({ personaFilter, personas, onRefresh }) {
+export function MonthView({ personaFilter, personas, defaultPersonaId, onRefresh }) {
   const today = new Date().toISOString().slice(0, 10)
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth())
-  const [selectedDate, setSelectedDate] = useState(today)
   const [todos, setTodos] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [editTodo, setEditTodo] = useState(null)
+  const [formDate, setFormDate] = useState(today)
 
   const cells = getMonthCells(year, month)
   const from = cells[0].date
@@ -64,7 +62,7 @@ export function MonthView({ personaFilter, personas, onRefresh }) {
     if (editTodo) {
       await api.updateTodo(editTodo.id, data)
     } else {
-      await api.createTodo({ ...data, due_date: data.due_date || selectedDate })
+      await api.createTodo({ ...data, due_date: data.due_date || formDate })
     }
     setShowForm(false)
     setEditTodo(null)
@@ -80,10 +78,21 @@ export function MonthView({ personaFilter, personas, onRefresh }) {
     onRefresh()
   }
 
-  const selectedTodos = todosForDate(selectedDate)
+  function openNewForm(date) {
+    setFormDate(date)
+    setEditTodo(null)
+    setShowForm(true)
+  }
+
+  function openEdit(e, todo) {
+    e.stopPropagation()
+    setEditTodo(todo)
+    setFormDate(todo.due_date)
+    setShowForm(true)
+  }
 
   return (
-    <div>
+    <div className="month-view">
       <div className="month-header">
         <h1 className="month-title">{year}년 {month + 1}월</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -91,57 +100,56 @@ export function MonthView({ personaFilter, personas, onRefresh }) {
             <button onClick={prevMonth}>‹</button>
             <button onClick={nextMonth}>›</button>
           </div>
-          <button className="btn-primary" onClick={() => { setEditTodo(null); setShowForm(true) }}>
+          <button className="btn-primary" onClick={() => openNewForm(today)}>
             + 추가
           </button>
         </div>
       </div>
 
-      <div className="month-grid">
+      <div className="month-cal">
         {DAY_LABELS.map(l => (
           <div key={l} className="month-day-label">{l}</div>
         ))}
         {cells.map(({ date, otherMonth }) => {
           const dayTodos = todosForDate(date)
-          const colors = [...new Set(
-            dayTodos.filter(t => !t.completed).map(t => personas.find(p => p.id === t.persona_id)?.color).filter(Boolean)
-          )].slice(0, 4)
+          const visible = dayTodos.slice(0, 3)
+          const overflow = dayTodos.length - visible.length
           return (
             <div
               key={date}
-              className={`month-cell ${date === today ? 'today' : ''} ${otherMonth ? 'other-month' : ''} ${date === selectedDate ? 'active' : ''}`}
-              onClick={() => setSelectedDate(date)}
+              className={`month-cal-cell ${date === today ? 'today' : ''} ${otherMonth ? 'other-month' : ''}`}
+              onClick={() => openNewForm(date)}
             >
-              <div className="month-cell-num">{parseInt(date.slice(8))}</div>
-              <div className="month-dots">
-                {colors.map((c, i) => (
-                  <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: c }} />
-                ))}
+              <div className={`month-cal-num ${date === today ? 'today-num' : ''}`}>
+                {parseInt(date.slice(8))}
               </div>
+              {visible.map(todo => {
+                const persona = personas.find(p => p.id === todo.persona_id)
+                return (
+                  <div
+                    key={todo.id}
+                    className={`month-cal-todo ${todo.completed ? 'completed' : ''}`}
+                    style={persona ? { background: persona.color + '33', borderLeft: `2px solid ${persona.color}` } : {}}
+                    onClick={(e) => openEdit(e, todo)}
+                  >
+                    {todo.title}
+                  </div>
+                )
+              })}
+              {overflow > 0 && (
+                <div className="month-cal-more">+{overflow}개 더</div>
+              )}
             </div>
           )
         })}
       </div>
 
-      {selectedDate && (
-        <div style={{ marginTop: 20 }}>
-          <div style={{ fontSize: 14, color: 'var(--text-subtle)', marginBottom: 12 }}>
-            {formatKoreanDate(selectedDate)}
-          </div>
-          <TodoList
-            todos={selectedTodos}
-            personas={personas}
-            onToggle={handleToggle}
-            onEdit={(todo) => { setEditTodo(todo); setShowForm(true) }}
-          />
-        </div>
-      )}
-
       {showForm && (
         <TodoForm
           todo={editTodo}
           personas={personas}
-          defaultDate={selectedDate}
+          defaultDate={formDate}
+          defaultPersonaId={defaultPersonaId}
           onSave={handleSave}
           onDelete={editTodo ? handleDelete : null}
           onClose={() => { setShowForm(false); setEditTodo(null) }}
@@ -149,9 +157,4 @@ export function MonthView({ personaFilter, personas, onRefresh }) {
       )}
     </div>
   )
-}
-
-function formatKoreanDate(isoDate) {
-  const d = new Date(isoDate + 'T00:00:00')
-  return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })
 }

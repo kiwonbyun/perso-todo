@@ -5,7 +5,7 @@ import { TodoForm } from './TodoForm'
 
 function getWeekDates(date) {
   const d = new Date(date)
-  const day = d.getDay() === 0 ? 6 : d.getDay() - 1 // Mon=0, Sun=6
+  const day = d.getDay() === 0 ? 6 : d.getDay() - 1
   const monday = new Date(d)
   monday.setDate(d.getDate() - day)
   return Array.from({ length: 7 }, (_, i) => {
@@ -17,7 +17,7 @@ function getWeekDates(date) {
 
 const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일']
 
-export function WeekView({ personaFilter, personas, onRefresh }) {
+export function WeekView({ personaFilter, personas, defaultPersonaId, onRefresh }) {
   const today = new Date().toISOString().slice(0, 10)
   const [weekDates, setWeekDates] = useState(() => getWeekDates(today))
   const [selectedDate, setSelectedDate] = useState(today)
@@ -65,7 +65,16 @@ export function WeekView({ personaFilter, personas, onRefresh }) {
     onRefresh()
   }
 
+  async function handleDirectDelete(todo) {
+    await api.deleteTodo(todo.id)
+    load()
+    onRefresh()
+  }
+
   const selectedTodos = todosForDate(selectedDate)
+  const incomplete = selectedTodos.filter(t => !t.completed)
+  const allDone = selectedTodos.length > 0 && incomplete.length === 0
+  const empty = selectedTodos.length === 0
 
   return (
     <div>
@@ -79,9 +88,9 @@ export function WeekView({ personaFilter, personas, onRefresh }) {
       <div className="week-grid">
         {weekDates.map((date, i) => {
           const dayTodos = todosForDate(date)
-          const colors = [...new Set(
-            dayTodos.map(t => personas.find(p => p.id === t.persona_id)?.color).filter(Boolean)
-          )].slice(0, 4)
+          const dayIncomplete = dayTodos.filter(t => !t.completed).length
+          const dayTotal = dayTodos.length
+          const allClear = dayTotal > 0 && dayIncomplete === 0
           return (
             <div
               key={date}
@@ -90,37 +99,82 @@ export function WeekView({ personaFilter, personas, onRefresh }) {
             >
               <div className="week-day-label">{DAY_LABELS[i]}</div>
               <div className="week-day-num">{parseInt(date.slice(8))}</div>
-              <div className="week-dots">
-                {colors.map((c, ci) => (
-                  <div key={ci} style={{ width: 5, height: 5, borderRadius: '50%', background: c }} />
-                ))}
-              </div>
+              {dayTotal > 0 && (
+                <div className={`week-day-count ${allClear ? 'all-clear' : ''}`}>
+                  {allClear ? '✓' : `${dayIncomplete}/${dayTotal}`}
+                </div>
+              )}
             </div>
           )
         })}
       </div>
 
-      <div style={{ fontSize: 14, color: 'var(--text-subtle)', marginBottom: 12 }}>
+      <div style={{ fontSize: 15, color: 'var(--text-subtle)', marginBottom: 14 }}>
         {formatKoreanDate(selectedDate)}
+        {!empty && (
+          <span style={{ marginLeft: 10, color: allDone ? 'var(--green)' : 'var(--accent)', fontWeight: 600 }}>
+            {allDone ? '모두 완료 ✓' : `${incomplete.length}/${selectedTodos.length}`}
+          </span>
+        )}
       </div>
 
-      <TodoList
-        todos={selectedTodos}
-        personas={personas}
-        onToggle={handleToggle}
-        onEdit={(todo) => { setEditTodo(todo); setShowForm(true) }}
-      />
+      {(empty || allDone) ? (
+        <ClearState allDone={allDone} />
+      ) : (
+        <TodoList
+          todos={selectedTodos}
+          personas={personas}
+          onToggle={handleToggle}
+          onEdit={(todo) => { setEditTodo(todo); setShowForm(true) }}
+          onDelete={handleDirectDelete}
+        />
+      )}
 
       {showForm && (
         <TodoForm
           todo={editTodo}
           personas={personas}
           defaultDate={selectedDate}
+          defaultPersonaId={defaultPersonaId}
           onSave={handleSave}
           onDelete={editTodo ? handleDelete : null}
           onClose={() => { setShowForm(false); setEditTodo(null) }}
         />
       )}
+    </div>
+  )
+}
+
+function ClearState({ allDone }) {
+  return (
+    <div className="clear-state">
+      <div className="clear-character">
+        {allDone ? (
+          <>
+            <div className="clear-char-art">
+              {'  ∧＿∧  '}
+              <br />
+              {'( ･ω･ )ﾉ'}
+              <br />
+              {'  /  づ✦'}
+            </div>
+            <div className="clear-title">전부 해냈어요!</div>
+            <div className="clear-sub">오늘도 수고했어요 ☆</div>
+          </>
+        ) : (
+          <>
+            <div className="clear-char-art">
+              {'  ∧＿∧  '}
+              <br />
+              {'(´• ω •`)'}
+              <br />
+              {'  |  づ  '}
+            </div>
+            <div className="clear-title">할 일이 없어요</div>
+            <div className="clear-sub">여유로운 하루네요 ☁︎</div>
+          </>
+        )}
+      </div>
     </div>
   )
 }

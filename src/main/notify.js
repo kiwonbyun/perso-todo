@@ -38,39 +38,47 @@ async function sendSlackNotification(webhookUrl, message) {
 }
 
 function scheduleNotify(db, notifyFn) {
-  let task = null
+  let tasks = []
+
+  async function fire() {
+    const today = new Date().toISOString().slice(0, 10)
+    const todos = db.prepare(`
+      SELECT t.*, p.name as persona_name
+      FROM todos t
+      LEFT JOIN personas p ON t.persona_id = p.id
+      WHERE t.completed = 0
+    `).all()
+
+    const payload = buildNotifyPayload(todos, today)
+    payload.date = formatKoreanDate(today)
+
+    const webhookRow = db.prepare("SELECT value FROM settings WHERE key='slack_webhook_url'").get()
+    const webhookUrl = webhookRow && webhookRow.value
+
+    await sendSlackNotification(webhookUrl, buildSlackMessage(payload))
+    if (notifyFn) notifyFn(payload)
+  }
 
   function reload() {
-    if (task) { task.stop(); task = null }
+    tasks.forEach(t => t.stop())
+    tasks = []
 
     const timeRow = db.prepare("SELECT value FROM settings WHERE key='notify_time'").get()
-    const time = (timeRow && timeRow.value) || '08:00'
-    const [hour, minute] = time.split(':')
+    let times = ['08:00']
+    try {
+      const parsed = JSON.parse(timeRow && timeRow.value)
+      if (Array.isArray(parsed) && parsed.length > 0) times = parsed
+    } catch { /* use default */ }
 
-    task = cron.schedule(`${minute} ${hour} * * *`, async () => {
-      const today = new Date().toISOString().slice(0, 10)
-      const todos = db.prepare(`
-        SELECT t.*, p.name as persona_name
-        FROM todos t
-        LEFT JOIN personas p ON t.persona_id = p.id
-        WHERE t.completed = 0
-      `).all()
-
-      const payload = buildNotifyPayload(todos, today)
-      payload.date = formatKoreanDate(today)
-
-      const webhookRow = db.prepare("SELECT value FROM settings WHERE key='slack_webhook_url'").get()
-      const webhookUrl = webhookRow && webhookRow.value
-
-      const slackMsg = buildSlackMessage(payload)
-      await sendSlackNotification(webhookUrl, slackMsg)
-
-      if (notifyFn) notifyFn(payload)
-    })
+    for (const time of times) {
+      const [hour, minute] = time.split(':')
+      if (!hour || !minute) continue
+      tasks.push(cron.schedule(`${minute} ${hour} * * *`, fire))
+    }
   }
 
   reload()
-  return { reload, stop: () => task && task.stop() }
+  return { reload, stop: () => tasks.forEach(t => t.stop()), fireNow: fire }
 }
 
 function formatKoreanDate(isoDate) {

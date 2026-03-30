@@ -12,13 +12,20 @@
     "package.json"
   ],
   "win": {
-    "target": "nsis",
-    "icon": "assets/tray-icon.png"
+    "target": "nsis"
   },
   "nsis": {
     "oneClick": false,
-    "allowToChangeInstallationDirectory": true,
-    "installerLanguages": ["ko"]
+    "allowToChangeInstallationDirectory": true
+  },
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["arm64", "x64"] }
+    ],
+    "category": "public.app-category.productivity"
+  },
+  "dmg": {
+    "window": { "width": 540, "height": 380 }
   },
   "extraMetadata": {
     "main": "src/main/index.js"

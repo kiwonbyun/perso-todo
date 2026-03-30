@@ -26,5 +26,8 @@ export const api = {
   deletePersona: (id) => req('DELETE', `/api/personas/${id}`),
 
   getSettings: () => req('GET', '/api/settings'),
-  updateSettings: (data) => req('PATCH', '/api/settings', data)
+  updateSettings: (data) => req('PATCH', '/api/settings', data),
+
+  getOg: (url) => req('GET', `/api/og?url=${encodeURIComponent(url)}`),
+  testNotify: () => req('POST', '/api/notify/test')
 }

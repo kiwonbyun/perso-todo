@@ -1,6 +1,6 @@
 import { TodoItem } from './TodoItem'
 
-export function TodoList({ todos, personas, onToggle, onEdit }) {
+export function TodoList({ todos, personas, onToggle, onEdit, onDelete }) {
   const personaMap = Object.fromEntries(personas.map(p => [p.id, p]))
 
   if (todos.length === 0) {
@@ -16,6 +16,7 @@ export function TodoList({ todos, personas, onToggle, onEdit }) {
           persona={todo.persona_id ? personaMap[todo.persona_id] : null}
           onToggle={onToggle}
           onClick={onEdit}
+          onDelete={onDelete}
         />
       ))}
     </div>

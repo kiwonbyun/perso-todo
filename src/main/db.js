@@ -31,8 +31,9 @@ function createDb(dbPath) {
     );
   `)
 
-  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('notify_time', '08:00')`).run()
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('notify_time', '["08:00"]')`).run()
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('slack_webhook_url', '')`).run()
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('default_persona_id', '')`).run()
 
   return db
 }

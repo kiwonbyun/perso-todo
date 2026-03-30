@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -33,16 +36,15 @@ jobs:
       - name: Rebuild native modules
         run: npx electron-rebuild -f -w better-sqlite3
 
-      - name: Build and package
-        run: npm run dist
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build React
+        run: npm run build
+
+      - name: Package with electron-builder
+        run: npx electron-builder --publish never
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.artifact_glob }}
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

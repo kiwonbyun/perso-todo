@@ -45,18 +45,18 @@ function createWindow() {
 app.whenReady().then(() => {
   db = createDb(DB_PATH)
 
-  server = createServer(db, { onNotifyChange: () => notifier && notifier.reload() })
+  const app = createServer(db, { onNotifyChange: () => notifier && notifier.reload() })
+  server = app.listen(API_PORT, '127.0.0.1', () => {
+    console.log(`API server running on port ${API_PORT}`)
+  })
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.error(`Port ${API_PORT} already in use. Retrying...`)
       setTimeout(() => server.listen(API_PORT, '127.0.0.1'), 1000)
     }
   })
-  server.listen(API_PORT, '127.0.0.1', () => {
-    console.log(`API server running on port ${API_PORT}`)
-  })
 
-  server.post('/api/notify/test', async (req, res) => {
+  app.post('/api/notify/test', async (req, res) => {
     await notifier.fireNow()
     res.json({ ok: true })
   })

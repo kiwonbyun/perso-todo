@@ -63,6 +63,19 @@ describe('Todos API', () => {
     expect(res.body.completed_at).toBeDefined()
   })
 
+  test('PATCH /api/todos/:id clears persona_id when set to null', async () => {
+    const created = await request(app)
+      .post('/api/todos')
+      .send({ title: '할 일', persona_id: personaId })
+    expect(created.body.persona_id).toBe(personaId)
+
+    const res = await request(app)
+      .patch(`/api/todos/${created.body.id}`)
+      .send({ persona_id: null })
+    expect(res.status).toBe(200)
+    expect(res.body.persona_id).toBeNull()
+  })
+
   test('DELETE /api/todos/:id removes todo', async () => {
     const created = await request(app).post('/api/todos').send({ title: '할 일' })
     const res = await request(app).delete(`/api/todos/${created.body.id}`)
